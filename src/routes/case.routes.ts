@@ -13,7 +13,7 @@ router.use(authMiddleware);
 router.post("/",validate(createCaseSchema, "body"),crear);
 router.get("/",listar);
 router.get("/:id",obtener);
-router.put("/:id",validate(updateCaseSchema, "body"),actualizar);
+router.patch("/:id",validate(updateCaseSchema, "body"),actualizar);
 router.delete("/:id",eliminar);
 router.post("/:id/file/upload-url", validate(uploadFileSchema, "body"),uploadUrl);
 router.post("/:id/file/complete",validate(completeFileSchema, "body"), complete);

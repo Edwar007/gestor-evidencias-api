@@ -1,0 +1,653 @@
+# Gestor de Evidencias API
+
+API REST desarrollada con Node.js y TypeScript para la gestión de casos y evidencias.
+
+Este proyecto hace parte de una prueba técnica Full Stack cuyo objetivo es implementar una solución de punta a punta con autenticación, persistencia, CRUD de casos y gestión de archivos mediante URLs prefirmadas.
+
+---
+
+# Tecnologías
+
+- Node.js
+- TypeScript
+- Express
+- Prisma ORM
+- PostgreSQL
+- Neon
+- JWT
+- bcryptjs
+- Zod
+- Cloudflare R2
+- Vitest
+- Supertest
+
+---
+
+# Arquitectura
+
+El backend está organizado siguiendo una arquitectura por capas y responsabilidades.
+
+```text
+src/
+├── config/
+├── controllers/
+├── errors/
+├── lib/
+├── middlewares/
+├── repositories/
+├── routes/
+├── schemas/
+├── services/
+├── types/
+├── app.ts
+└── server.ts
+```
+
+## Capas principales
+
+### Routes
+
+Definición de endpoints y agrupación de rutas.
+
+### Controllers
+
+Reciben las peticiones HTTP y construyen las respuestas.
+
+### Services
+
+Contienen la lógica de negocio.
+
+### Repositories
+
+Acceso a la base de datos mediante Prisma.
+
+### Schemas
+
+Validación de datos de entrada mediante Zod.
+
+### Middlewares
+
+Autenticación, validación y manejo global de errores.
+
+### Lib
+
+Configuración de servicios externos como Prisma, JWT y Cloudflare R2.
+
+---
+
+# Requisitos
+
+- Node.js 20+
+- npm
+- PostgreSQL
+- Cuenta de Neon o una instancia PostgreSQL compatible.
+- Cuenta de Cloudflare R2 para el almacenamiento de archivos.
+
+---
+
+# Instalación
+
+## Clonar el repositorio
+
+```bash
+git clone <URL_DEL_REPOSITORIO>
+cd gestor-evidencias-api
+```
+
+## Instalar dependencias
+
+```bash
+npm install
+```
+
+## Crear archivo de entorno
+
+Crear un archivo `.env` tomando como referencia `.env.example`.
+
+---
+
+# Variables de entorno
+
+```env
+DATABASE_URL=
+
+JWT_SECRET=
+
+PORT=3000
+
+R2_ACCOUNT_ID=
+R2_ACCESS_KEY_ID=
+R2_SECRET_ACCESS_KEY=
+R2_BUCKET_NAME=
+```
+
+> Los valores reales nunca deben almacenarse en el repositorio.
+
+---
+
+# Base de datos
+
+El proyecto utiliza Prisma como ORM y PostgreSQL como base de datos.
+
+## Ejecutar migraciones
+
+```bash
+npx prisma migrate deploy
+```
+
+## Crear migraciones durante desarrollo
+
+```bash
+npx prisma migrate dev
+```
+
+## Generar cliente Prisma
+
+```bash
+npx prisma generate
+```
+
+---
+
+# Ejecución
+
+## Desarrollo
+
+```bash
+npm run dev
+```
+
+## Compilar
+
+```bash
+npm run build
+```
+
+## Producción
+
+```bash
+npm start
+```
+
+La API utiliza el puerto configurado mediante la variable `PORT`.
+
+---
+
+# Autenticación
+
+La autenticación se implementa mediante JWT.
+
+Las contraseñas se almacenan utilizando hash mediante `bcryptjs` y nunca se guardan en texto plano.
+
+---
+
+## Registro
+
+### POST /auth/register
+
+```json
+{
+  "email": "usuario@example.com",
+  "password": "123456"
+}
+```
+
+### Respuesta
+
+```http
+201 Created
+```
+
+---
+
+## Login
+
+### POST /auth/login
+
+```json
+{
+  "email": "usuario@example.com",
+  "password": "123456"
+}
+```
+
+La respuesta retorna un JWT que debe utilizarse posteriormente en las rutas protegidas.
+
+---
+
+## Usuario autenticado
+
+### GET /auth/me
+
+Header:
+
+```http
+Authorization: Bearer <token>
+```
+
+---
+
+# Casos
+
+Los casos pertenecen a un usuario.
+
+Un usuario autenticado únicamente puede consultar, modificar y eliminar sus propios casos.
+
+La validación de ownership se realiza completamente en el backend.
+
+---
+
+## Crear caso
+
+### POST /cases
+
+```json
+{
+  "titulo": "Evidencia de transacción",
+  "descripcion": "Evidencia correspondiente a la operación realizada."
+}
+```
+
+### Respuesta
+
+```http
+201 Created
+```
+
+Estado inicial:
+
+```text
+OPEN
+```
+
+---
+
+## Listar casos
+
+### GET /cases
+
+Retorna únicamente los casos asociados al usuario autenticado.
+
+---
+
+## Obtener un caso
+
+### GET /cases/:id
+
+### Respuestas
+
+```http
+200 OK
+```
+
+```http
+404 Not Found
+```
+
+```http
+403 Forbidden
+```
+
+---
+
+## Actualizar caso
+
+### PATCH /cases/:id
+
+```json
+{
+  "titulo": "Nuevo título",
+  "descripcion": "Nueva descripción",
+  "estado": "CLOSED"
+}
+```
+
+Estados permitidos:
+
+```text
+OPEN
+CLOSED
+```
+
+---
+
+## Eliminar caso
+
+### DELETE /cases/:id
+
+Respuesta:
+
+```http
+204 No Content
+```
+
+Cuando exista un archivo asociado, también se elimina del almacenamiento Cloudflare R2.
+
+---
+
+# Gestión de archivos
+
+Los archivos no pasan directamente por el backend.
+
+La aplicación utiliza Cloudflare R2 mediante URLs prefirmadas compatibles con S3.
+
+---
+
+## Flujo de archivos
+
+```text
+Frontend
+   │
+   │ 1. Solicita URL
+   ▼
+Backend
+   │
+   │ 2. Genera URL prefirmada
+   ▼
+Frontend
+   │
+   │ 3. PUT del archivo
+   ▼
+Cloudflare R2
+   │
+   │ 4. Archivo almacenado
+   ▼
+Frontend
+   │
+   │ 5. Confirma carga
+   ▼
+Backend
+   │
+   │ 6. Persiste fileKey
+   ▼
+PostgreSQL
+```
+
+---
+
+## Solicitar URL de subida
+
+### POST /cases/:id/file/upload-url
+
+```json
+{
+  "fileName": "evidencia.pdf",
+  "contentType": "application/pdf"
+}
+```
+
+### Respuesta
+
+```json
+{
+  "uploadUrl": "https://...",
+  "key": "cases/...",
+  "expiresIn": 900
+}
+```
+
+El frontend utiliza posteriormente la URL recibida para realizar un `PUT` directamente contra Cloudflare R2.
+
+---
+
+## Completar subida
+
+### POST /cases/:id/file/complete
+
+```json
+{
+  "key": "cases/..."
+}
+```
+
+Antes de asociar el archivo al caso se valida:
+
+- Existencia del objeto.
+- Tamaño.
+- Tipo de archivo.
+
+---
+
+## Descargar archivo
+
+### GET /cases/:id/file/download-url
+
+Genera una URL temporal de lectura.
+
+El bucket permanece privado y no se expone públicamente.
+
+---
+
+## Restricciones de archivos
+
+### Tipos permitidos
+
+```text
+image/jpeg
+image/png
+application/pdf
+```
+
+### Tamaño máximo
+
+```text
+5 MB
+```
+
+### Duración URLs prefirmadas
+
+```text
+Upload: 15 minutos
+Download: 3 minutos
+```
+
+---
+
+# Códigos HTTP
+
+| Código | Descripción |
+|----------|-------------|
+| 200 | Operación exitosa |
+| 201 | Recurso creado |
+| 204 | Eliminación exitosa |
+| 400 | Datos inválidos |
+| 401 | Token inválido o ausente |
+| 403 | Recurso perteneciente a otro usuario |
+| 404 | Recurso no encontrado |
+| 409 | Conflicto, por ejemplo email duplicado |
+
+---
+
+# Pruebas
+
+El backend cuenta con pruebas automatizadas utilizando Vitest y Supertest.
+
+## Ejecutar pruebas
+
+```bash
+npm run test:run
+```
+
+## Modo interactivo
+
+```bash
+npm test
+```
+
+---
+
+## Cobertura de pruebas
+
+- Health Check.
+- Conexión PostgreSQL.
+- Registro de usuarios.
+- Validación de datos.
+- Emails duplicados.
+- Login.
+- Credenciales inválidas.
+- JWT.
+- `/auth/me`
+- Protección de rutas.
+- Creación de casos.
+- Listado de casos.
+- Consulta individual.
+- Actualización.
+- Eliminación.
+- Ownership.
+- Generación de URLs de subida.
+- Validación de tipos de archivo.
+- Casos inexistentes.
+- Permisos de acceso.
+- Generación de URLs de descarga.
+
+---
+
+# Configuración de pruebas
+
+Las pruebas utilizan un entorno independiente mediante:
+
+```text
+.env.test
+```
+
+Este archivo no debe subirse al repositorio.
+
+## Ejecutar migraciones del entorno de pruebas
+
+```bash
+npx dotenv-cli -e .env.test -- prisma migrate deploy
+```
+
+---
+
+# Decisiones Técnicas
+
+## PostgreSQL + Neon
+
+Se eligió PostgreSQL por ser el motor solicitado en la prueba técnica y por su excelente soporte para modelos relacionales.
+
+Neon proporciona una instancia PostgreSQL administrada en la nube que facilita el despliegue y separación entre ambientes.
+
+---
+
+## Prisma
+
+Prisma se utiliza para:
+
+- Definir el esquema de datos.
+- Gestionar migraciones.
+- Ejecutar consultas tipadas.
+- Mantener separación entre dominio y persistencia.
+
+---
+
+## JWT
+
+JWT permite implementar autenticación stateless.
+
+El token contiene el identificador del usuario y es validado mediante middleware antes de acceder a cualquier ruta protegida.
+
+---
+
+## Cloudflare R2
+
+Cloudflare R2 fue seleccionado porque:
+
+- Es compatible con S3.
+- Soporta URLs prefirmadas.
+- Evita cargar archivos grandes a través del backend.
+- Permite almacenamiento privado.
+
+---
+
+# Flujo completo para pruebas manuales
+
+1. Autenticarse mediante login.
+2. Crear un caso.
+3. Solicitar URL de subida.
+4. Subir archivo mediante PUT usando la URL prefirmada.
+5. Confirmar la carga.
+6. Solicitar URL de descarga.
+7. Descargar o visualizar el archivo.
+
+---
+
+# Uso de Inteligencia Artificial
+
+Durante el desarrollo se utilizaron asistentes de inteligencia artificial como herramienta de apoyo técnico.
+
+## Herramientas utilizadas
+
+- ChatGPT
+
+## Uso realizado
+
+La IA fue utilizada para:
+
+- Analizar requisitos de la prueba técnica.
+- Proponer arquitecturas iniciales.
+- Revisar decisiones técnicas.
+- Generar ejemplos de implementación.
+- Revisar integración entre Prisma y PostgreSQL.
+- Apoyar la implementación de JWT.
+- Apoyar la integración de Cloudflare R2.
+- Proponer escenarios de pruebas automatizadas.
+- Analizar errores encontrados durante el desarrollo.
+
+## Trabajo realizado directamente
+
+Todo el código fue revisado, adaptado, probado y validado durante la implementación.
+
+Las propuestas generadas mediante IA fueron modificadas para ajustarse a:
+
+- Estructura final del proyecto.
+- Dependencias utilizadas.
+- Requisitos específicos de la prueba técnica.
+
+Además se realizaron pruebas manuales y automatizadas para verificar el comportamiento de la API.
+
+---
+
+# Incidente detectado durante el desarrollo
+
+Durante la ejecución de las pruebas automatizadas se presentó un problema relacionado con la ejecución paralela de Vitest.
+
+Los distintos archivos compartían una misma base de datos de pruebas y realizaban limpieza de datos antes de cada ejecución, provocando interferencias entre suites.
+
+La solución consistió en configurar Vitest para ejecutar los archivos de prueba de forma secuencial:
+
+```ts
+fileParallelism: false
+```
+
+Una vez aplicado el ajuste, todas las pruebas finalizaron correctamente.
+
+---
+
+# Estado Actual del Proyecto
+
+✅ API REST funcional
+
+✅ Autenticación JWT
+
+✅ Prisma ORM
+
+✅ PostgreSQL + Neon
+
+✅ CRUD de Casos
+
+✅ Control de Ownership
+
+✅ Cloudflare R2
+
+✅ URLs prefirmadas de subida
+
+✅ URLs prefirmadas de descarga
+
+✅ Validación de archivos
+
+✅ Pruebas automatizadas
+
+✅ Configuración de entornos independientes
+
+---

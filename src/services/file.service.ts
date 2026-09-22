@@ -158,3 +158,12 @@ export const generarDownloadUrl = async (caseId: string,userId: string) => {
       FILE_CONFIG.downloadUrlExpiresIn
   };
 };
+
+export const eliminarArchivo = async (fileKey: string) => {
+  await obtenerR2Client().send(
+    new DeleteObjectCommand({
+      Bucket: obtenerBucketName(),
+      Key: fileKey
+    })
+  );
+};

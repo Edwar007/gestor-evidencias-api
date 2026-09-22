@@ -1,6 +1,8 @@
 import {createCase, findAllCasesByUser, findCaseById, updateCase, deleteCase, findCaseByIdOnly} from "../repositories/case.repository.js";
 import {CreateCaseDTO,UpdateCaseDTO} from "../types/case.types.js";
 import { AppError } from "../errors/app.error.js";
+import { eliminarArchivo } from "./file.service.js";
+
 export const crearCaso = async (data: CreateCaseDTO,userId: string) => {
   return createCase(
     data.titulo,
@@ -33,6 +35,10 @@ export const actualizarCaso = async (id: string,data: UpdateCaseDTO,userId: stri
 };
 
 export const eliminarCaso = async (id: string,userId: string) => {
-  await obtenerCaso(id, userId);
+
+  const caso = await obtenerCaso(id, userId);
+  if (caso.fileKey) {
+    await eliminarArchivo(caso.fileKey);
+  }
   await deleteCase(id, userId);
 };
