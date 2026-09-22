@@ -6,7 +6,7 @@ import {
 } from "@aws-sdk/client-s3";
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 import { randomUUID } from "crypto";
-import { r2Client } from "../lib/r2.js";
+import obtenerR2Client from "../lib/r2.js";
 import { FILE_CONFIG } from "../config/file.config.js";
 import {
   findCaseByIdOnly,
@@ -14,13 +14,18 @@ import {
 } from "../repositories/case.repository.js";
 import { AppError } from "../errors/app.error.js";
 
-const BUCKET_NAME = process.env.R2_BUCKET_NAME;
+const obtenerBucketName = () => {
 
-if (!BUCKET_NAME) {
-  throw new Error(
-    "R2_BUCKET_NAME no está configurado"
-  );
-}
+  const bucketName = process.env.R2_BUCKET_NAME;
+
+  if (!bucketName) {
+    throw new Error(
+      "R2_BUCKET_NAME no está configurado"
+    );
+  }
+
+  return bucketName;
+};
 
 export const generarUploadUrl = async (caseId: string, userId: string, fileName: string, contentType: string) => {
     const caso = await findCaseByIdOnly(caseId);
@@ -47,12 +52,12 @@ export const generarUploadUrl = async (caseId: string, userId: string, fileName:
     const key = `cases/${caseId}/${randomUUID()}${extension}`;
 
     const command = new PutObjectCommand({
-        Bucket: BUCKET_NAME,
+        Bucket: obtenerBucketName(),
         Key: key,
         ContentType: contentType
     });
 
-    const uploadUrl = await getSignedUrl(r2Client, command,{expiresIn: FILE_CONFIG.uploadUrlExpiresIn});
+    const uploadUrl = await getSignedUrl(obtenerR2Client(), command,{expiresIn: FILE_CONFIG.uploadUrlExpiresIn});
     return {
         uploadUrl,
         key,
@@ -77,9 +82,9 @@ export const completarUpload = async (caseId: string, userId: string, key: strin
   let object;
 
   try {
-    object = await r2Client.send(
+    object = await obtenerR2Client().send(
       new HeadObjectCommand({
-        Bucket: BUCKET_NAME,
+        Bucket: obtenerBucketName(),
         Key: key
       })
     );
@@ -92,7 +97,7 @@ export const completarUpload = async (caseId: string, userId: string, key: strin
   }
 
   if (object.ContentLength > FILE_CONFIG.maxSize) {
-    await r2Client.send(new DeleteObjectCommand({Bucket: BUCKET_NAME,Key: key}));
+    await obtenerR2Client().send(new DeleteObjectCommand({Bucket: obtenerBucketName(),Key: key}));
     throw new AppError("El archivo supera el tamaño máximo permitido de 5 MB", 400 );
   }
 
@@ -101,9 +106,9 @@ export const completarUpload = async (caseId: string, userId: string, key: strin
         (typeof FILE_CONFIG.allowedMimeTypes)[number]
     )
   ) {
-    await r2Client.send(
+    await obtenerR2Client().send(
       new DeleteObjectCommand({
-        Bucket: BUCKET_NAME,
+        Bucket: obtenerBucketName(),
         Key: key
       })
     );
@@ -134,12 +139,12 @@ export const generarDownloadUrl = async (caseId: string,userId: string) => {
   }
 
   const command = new GetObjectCommand({
-    Bucket: BUCKET_NAME,
+    Bucket: obtenerBucketName(),
     Key: caso.fileKey
   });
 
   const downloadUrl = await getSignedUrl(
-    r2Client,
+    obtenerR2Client(),
     command,
     {
       expiresIn:
