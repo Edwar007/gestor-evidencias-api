@@ -1,0 +1,37 @@
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum EstadoCaso {
+  OPEN
+  CLOSED
+}
+
+model User {
+  id        String   @id @default(cuid())
+  email     String   @unique
+  password  String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  casos Caso[]
+}
+
+model Caso {
+  id          String     @id @default(cuid())
+  titulo      String
+  descripcion String
+  estado      EstadoCaso @default(OPEN)
+  fileKey     String?
+
+  userId  String
+  usuario User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
