@@ -1,7 +1,5 @@
 import express from "express";
 import authRoutes from "./routes/auth.routes.js";
-import caseRoutes from "./routes/case.routes.js";
-import healthRoutes from "./routes/health.routes.js";
 import { errorMiddleware } from "./middlewares/error.middleware.js";
 import cors from "cors";
 
