@@ -1,13 +1,14 @@
 import express from "express";
+import authRoutes from "./routes/auth.routes.js";
+import caseRoutes from "./routes/case.routes.js";
+import healthRoutes from "./routes/health.routes.js";
+import { errorMiddleware } from "./middlewares/error.middleware.js";
+import cors from "cors";
 
 const app = express();
-
+app.use(cors());
 app.use(express.json());
-
-app.get("/salud", (_solicitud, respuesta) => {
-  respuesta.status(200).json({
-    mensaje: "API funcionando correctamente"
-  });
-});
+app.use("/auth", authRoutes);
+app.use(errorMiddleware);
 
 export default app;
