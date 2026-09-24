@@ -233,7 +233,7 @@ describe("Gestión de casos", () => {
       const caso = await crearCaso(token);
 
       const response = await request(app)
-        .put(`/cases/${caso.body.id}`)
+        .patch(`/cases/${caso.body.id}`)
         .set("Authorization", `Bearer ${token}`)
         .send({
           titulo: "Caso actualizado",
@@ -257,7 +257,7 @@ describe("Gestión de casos", () => {
       const caso = await crearCaso(token);
 
       const response = await request(app)
-        .put(`/cases/${caso.body.id}`)
+        .patch(`/cases/${caso.body.id}`)
         .set("Authorization", `Bearer ${token}`)
         .send({
           estado: "ESTADO_INVALIDO"
@@ -279,7 +279,7 @@ describe("Gestión de casos", () => {
       const caso = await crearCaso(tokenUsuario1);
 
       const response = await request(app)
-        .put(`/cases/${caso.body.id}`)
+        .patch(`/cases/${caso.body.id}`)
         .set("Authorization", `Bearer ${tokenUsuario2}`)
         .send({
           titulo: "Intento de modificación"

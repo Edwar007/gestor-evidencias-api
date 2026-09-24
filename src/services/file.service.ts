@@ -38,10 +38,6 @@ export const generarUploadUrl = async (caseId: string, userId: string, fileName:
         throw new AppError( "No tienes permisos para acceder a este caso", 403);
     }
 
-    if (caso.fileKey) {
-        throw new AppError("El caso ya tiene un archivo asociado", 409);
-    }
-
     const extensionByMime = {
         "image/jpeg": ".jpg",
         "image/png": ".png",
@@ -116,7 +112,13 @@ export const completarUpload = async (caseId: string, userId: string, key: strin
     throw new AppError("El tipo de archivo no está permitido", 400);
   }
 
-  await updateCaseFileKey(caseId,userId,key);
+  const oldFileKey = caso.fileKey;
+
+  await updateCaseFileKey(caseId, userId, key);
+
+  if (oldFileKey) {
+    await eliminarArchivo(oldFileKey);
+  }
 
   return {
     fileKey: key
